@@ -1,0 +1,12 @@
+,value
+n_failures,4.0
+n_detected,4.0
+n_early_warnings,1.0
+event_recall,1.0
+median_lead_time_min,-20.0
+n_alarm_episodes,51.0
+n_false_alarm_episodes,45.0
+false_alarms_per_day,0.24457444800905834
+window_precision,0.3238341968911917
+window_recall,0.9107468123861566
+window_f1,0.47778308647873863

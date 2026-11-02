@@ -1,0 +1,137 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage[a4paper,margin=2.3cm]{geometry}
+\usepackage{setspace}\setstretch{1.08}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{array}
+\usepackage{caption}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage[hidelinks]{hyperref}
+
+\setlength{\parskip}{2pt}
+
+\setcounter{tocdepth}{2}
+\begin{document}
+
+\begin{titlepage}
+\centering
+\includegraphics[width=3.2cm]{figures/thd_logo.jpg}\par
+\vspace{0.6cm}
+{\large\bfseries Technische Hochschule Deggendorf\par}
+\vspace{1.6cm}
+{\LARGE\bfseries Case Study: Intelligent Systems in Production\\[6pt]
+Early Warning of Air-Leak Failures in Metro Compressors: Explainable Anomaly Detection on the MetroPT-3 Dataset\par}
+\vspace{1.0cm}
+{\large\itshape Bibliography Report\par}
+\vspace{1.4cm}
+{\large\bfseries Submitted by (Group 6):\par}
+\vspace{4pt}
+{\bfseries Fuad Obiedat\\ Abdennour Djeha\\ Mohamed Fares\\ Hady Nasser\par}
+\vspace{0.8cm}
+{\large\bfseries Course:\par}
+\vspace{4pt}
+M.Eng.\ in Applied AI for Digital Production Management\par
+\vfill
+{\large\bfseries Under the Supervision of:\par}
+\vspace{4pt}
+Prof.~Dr.-Ing.~Hamidreza Heidari\par
+\vspace{0.6cm}
+\textbf{Date of Submission:} 03.11.2026\par
+\end{titlepage}
+
+\begin{abstract}
+\noindent The Air Production Unit (APU) of a Metro do Porto train has no redundancy, so an air leak removes the vehicle from service; the operator requires failures to be detected at least two hours in advance with few false alarms. This \textbf{bibliography report} reviews 29 verified sources to support an \textbf{explainable early-warning model} for air leaks on the public \textbf{MetroPT-3} dataset, which contains only four documented failures. Moving from general to specific, it covers maintenance strategies and data-driven predictive maintenance, anomaly detection in multivariate time series, the evaluation of anomaly detectors, explainable AI for maintenance, and the studies on the Metro do Porto APU. The review shows that the problem is best framed as unsupervised early failure warning, that simple detectors are often competitive with deep models, that point-wise and point-adjusted metrics can overstate performance, and that SHAP and rule-based explanations dominate in practice. The APU literature comes almost entirely from one research group and mostly uses data from 2022; the closest study already applies an LSTM autoencoder with SHAP to MetroPT-3. We therefore position our project as a transparent, leakage-free benchmark of a \textbf{threshold rule, Isolation Forest and an LSTM autoencoder} with \textbf{event-level evaluation} of lead time and false alarms, informed by data-quality issues found in a first exploratory analysis: recording gaps (17.7\,\% of the period), frozen logging segments and a distribution shift in the training month.
+
+\medskip
+\noindent\textbf{Keywords:} predictive maintenance; anomaly detection; multivariate time series; railway; explainable AI; MetroPT-3
+\end{abstract}
+\clearpage
+{\small\tableofcontents
+\listoffigures
+\listoftables}
+\clearpage
+
+\section{Introduction}
+\label{sec:intro}
+
+Maintenance of industrial and transport assets has traditionally followed two strategies: \emph{corrective} maintenance, in which components are repaired or replaced after they break, and \emph{preventive} maintenance, in which tasks are scheduled at fixed intervals regardless of the actual condition of the equipment. The first exposes the operator to unplanned downtime, the second to the replacement of healthy components \citep{silva2023adversarial}. \emph{Predictive maintenance} (PdM) aims to avoid both costs by monitoring the condition of an asset and intervening only when data indicate that a failure is developing \citep{davari2021survey}. With the spread of sensors and data infrastructure associated with Industry~4.0, data-driven PdM has become an active research field, and surveys document a growing range of machine-learning methods applied to it, from classical models to deep neural networks \citep{davari2021survey}.
+
+Railways are a demanding application domain for PdM. A rail vehicle consists of many interacting subsystems, failures interrupt passenger service, and the literature that addresses specific railway components is still comparatively scarce \citep{davari2021survey}. This report focuses on one such component: the \emph{Air Production Unit} (APU) of a Metro do Porto train. The APU supplies compressed air to pneumatic consumers such as the secondary suspension, which keeps the vehicle at platform height independent of passenger load. Because the unit has no redundancy, an APU failure results in the immediate removal of the train from service \citep{veloso2022metropt}. The operator therefore requires failures to be detected at least two hours before the train becomes non-operational, while keeping false alarms low; at the same time, such failures are reported to be typically undetectable with traditional threshold-based condition monitoring \citep{veloso2022metropt}.
+
+Two properties of the problem shape the methodological choices discussed in this report. First, labelled failures are rare and costly to obtain, which makes purely supervised learning impractical and motivates formulating PdM as unsupervised anomaly detection on multivariate sensor time series \citep{davari2021survey}. Second, an alarm is only useful if maintenance staff trust it and can act on it; a lack of interpretability has been identified as a source of mistrust in data-driven PdM \citep{vollert2021interpretable}, and the Metro do Porto use case explicitly asks for an explanation of why an alarm is raised \citep{silva2023adversarial}.
+
+Our case study addresses this setting on the public MetroPT-3 dataset \citep{davari2021metropt3data}: 1{,}516{,}948 records of 15 APU signals recorded between February and August 2020, in which only four air-leak failures are documented by maintenance reports. The goal of the project is an explainable early-warning model for air leaks that is evaluated with operational, event-level indicators (detected failures, warning lead time and false alarms).
+
+\subsection{Objectives}
+This bibliography report reviews the literature that underpins this goal and positions the project within it. It is guided by four research questions:
+\begin{enumerate}[label=\textbf{RQ\arabic*}, leftmargin=*, itemsep=2pt]
+  \item Which maintenance strategies and data-driven PdM approaches are relevant for a single, non-redundant railway component with few documented failures?
+  \item Which anomaly-detection methods for multivariate time series are suitable when only normal operating data are available for training?
+  \item How should anomaly detectors be evaluated so that results reflect operational value, in particular early warning and false alarms?
+  \item How has previous work approached the Metro do Porto APU and the MetroPT datasets, including the explanation of alarms, and which gap remains?
+\end{enumerate}
+
+\subsection{Scope of Study}
+The review covers literature on predictive maintenance, anomaly detection in multivariate time series, the evaluation of anomaly detectors and explainable AI, and all studies on the Metro do Porto APU that we could identify (2016--2025). Supervised fault classification and remaining-useful-life estimation are discussed only where they help to delimit our problem.
+
+The report follows a general-to-specific structure. Section~\ref{sec:methods} describes how the literature was searched, selected and verified. Section~\ref{sec:review} reviews the literature from maintenance strategies over time-series anomaly detection, evaluation and explainable AI to railway PdM. Section~\ref{sec:metropt} summarises the studies on the Metro do Porto APU one by one. Section~\ref{sec:map} synthesises the reviewed work in a literature map, derives the research gap and aligns it with our project. Section~\ref{sec:outline} outlines the method of our case study, informed by the reviewed literature and by a first exploratory analysis of the data, and Section~\ref{sec:conclusion} concludes.
+
+\section{Materials and Methods}
+\label{sec:methods}
+
+\subsection{Literature Search}
+The literature search was carried out in November 2026 and combined three strategies.
+\begin{enumerate}[itemsep=2pt]
+  \item \textbf{Keyword search} in general and scholarly web search, the arXiv preprint server and publisher platforms (IEEE Xplore, ACM Digital Library, SpringerLink, ScienceDirect, MDPI, Nature). Search terms combined the application with the method, e.g.\ \textit{``MetroPT'', ``Metro do Porto'', ``air production unit'', ``railway predictive maintenance''} with \textit{``anomaly detection'', ``autoencoder'', ``LSTM'', ``Isolation Forest'', ``explainable'', ``SHAP''}, as well as evaluation-related terms such as \textit{``time series anomaly detection evaluation''} and \textit{``precision and recall for time series''}.
+  \item \textbf{Repository search} in the UCI Machine Learning Repository (dataset description and failure reports) and in the open repository of the University of Porto, where the research group behind the MetroPT datasets is based.
+  \item \textbf{Backward citation chaining} from the most closely related studies \citep{silva2023adversarial,jakobs2025rules}, which identified further Metro do Porto studies; those for which neither full text nor abstract could be obtained were not included (Section~2.3).
+\end{enumerate}
+
+\subsection{Selection Criteria}
+Sources were included if they (i) addressed at least one of the themes of this review --- maintenance strategies and railway PdM, time-series anomaly detection, evaluation of anomaly detectors, or explainable AI for maintenance --- and (ii) were published as journal articles, conference papers or books. Preprints were included when they are widely cited methodological works or when they report recent results on the Metro do Porto data; one Master's thesis was included because it is, to our knowledge, the only openly available study that analyses the same APU over the same period as MetroPT-3 \citep{barros2020thesis}. Preprints and the thesis are marked as such in the reference list. Sources whose bibliographic data could not be verified were excluded; this applied to one conference paper on threshold selection for sparse autoencoders on the Metro do Porto data.
+
+\subsection{Verification and Access}
+Every reference was checked against an authoritative record before inclusion: the DOI registry (Crossref) for journal and conference papers, the arXiv record for preprints, the NeurIPS proceedings for NeurIPS papers, and the UCI page for the dataset. Title, authors, year, venue and identifier in the reference list follow these records.
+
+The final set comprises 29 sources (Table~\ref{tab:sources}). For 20 of them the full text was available and was read; for 7 only the abstract was accessible, and for one --- the original LSTM paper, cited only as the origin of the method --- only the bibliographic record; the remaining source is the dataset itself. Statements in this report about sources without full-text access are restricted to what their abstracts report. Nine further candidate sources for which neither full text nor abstract could be obtained were not included.
+
+\begin{table}[h]
+\centering
+\caption{Reviewed sources by theme and access level.}
+\label{tab:sources}
+\begin{tabular}{lccc}
+\toprule
+Theme & Full text & Abstract or record only & Total \\
+\midrule
+Maintenance, railway PdM and APU & 8 & 3 & 11 \\
+Anomaly detection in time series & 5 & 4 & 9 \\
+Evaluation of anomaly detectors & 4 & 0 & 4 \\
+Explainable AI for maintenance & 3 & 1 & 4 \\
+Dataset (UCI record) & -- & -- & 1 \\
+\midrule
+Total & 20 & 8 & 29 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Analysis}
+Each source was summarised in our own words in a structured reading log that records the data used, the method, the evaluation protocol, the form of explanation (if any) and the main findings. The sources were then grouped thematically and ordered from general to specific, which gives the structure of Section~\ref{sec:review}. For the studies on the Metro do Porto APU, the same attributes were compared side by side to construct the literature map in Section~\ref{sec:map}.
+
+\subsection{Data Used for the Method Outline}
+To ground the method outline (Section~\ref{sec:outline}) in the actual data, we downloaded MetroPT-3 from the UCI repository \citep{davari2021metropt3data} and performed a first exploratory data analysis (EDA) together with a simple rule-based baseline. The code is available in the project repository (\url{https://github.com/mohamedfarez/IntelligentSystemsCaseStudy}); only results that are needed to motivate methodological decisions are reported here.
+\input{body}
+
+\clearpage
+{\small
+\bibliographystyle{unsrtnat}
+\bibliography{references}
+}
+\end{document}
