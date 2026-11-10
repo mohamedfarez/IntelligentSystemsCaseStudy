@@ -1,0 +1,11 @@
+\begin{abstract}
+\noindent This report establishes the theoretical and methodological foundations of our case study on early warning of air-leak failures in the Air Production Unit (APU) of a Metro do Porto train, using the public \textbf{MetroPT-3} dataset with four documented failures. We first set out the theoretical framework: predictive maintenance formulated as unsupervised anomaly detection, the physical signature of an air leak in a compressed-air system, the isolation and reconstruction principles behind the selected detectors, event-level evaluation, and Shapley-value explanations. We then define the methodology as a controlled benchmark in which a \textbf{threshold rule}, an \textbf{Isolation Forest} and an \textbf{LSTM autoencoder} share the same preprocessing, the same alarm logic and the same evaluation protocol, so that the detector is the only difference between them. The data pipeline removes frozen logging segments, aggregates the signals into gap-aware 10-minute windows, splits the data chronologically (training on February 2020 only) and fits all scaling on the training period. Alarms are raised with a threshold of $Q_3 + 3\cdot\mathrm{IQR}$ on the training scores followed by a low-pass filter, and are evaluated per failure with lead time, false alarms per day and lead time relative to the low-pressure signal. We describe the modular system architecture, the inputs and outputs, and the main assumptions and challenges, including the small number of failures and a distribution shift between the training and test months. A first prototype of the preprocessing pipeline and the Isolation Forest detects all four failures, one of them two hours early, and reacts 10--20 minutes earlier than the threshold rule for the others, but raises 0.52 false alarms per day compared with 0.25, mainly because of the distribution shift.
+
+\medskip
+\noindent\textbf{Keywords:} predictive maintenance; anomaly detection; Isolation Forest; LSTM autoencoder; event-level evaluation; SHAP; MetroPT-3
+\end{abstract}
+\clearpage
+{\small\tableofcontents
+\listoffigures
+\listoftables}
+\clearpage

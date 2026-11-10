@@ -31,6 +31,30 @@ PROCESSED_DATA_DIR: Final[Path] = DATA_DIR / "processed"
 RESULTS_DIR: Final[Path] = PROJECT_ROOT / "results"
 FIGURES_DIR: Final[Path] = RESULTS_DIR / "figures"
 
+#: Sub-folder of FIGURES_DIR for each figure-name prefix.
+FIGURE_SUBDIRS: Final[dict[str, str]] = {
+    "eda_": "EDA",
+    "baseline_": "baseline",
+    "prep_": "preprocessing",
+    "iforest_": "isolation_forest",
+}
+
+
+def figure_path(name: str) -> Path:
+    """Path of a figure file, sorted into a sub-folder by its name prefix.
+
+    Example: ``figure_path("eda_01_records_per_day")`` ->
+    ``results/figures/EDA/eda_01_records_per_day.png``. The folder is created
+    if needed; names without a known prefix go directly into FIGURES_DIR.
+    """
+    folder = FIGURES_DIR
+    for prefix, sub in FIGURE_SUBDIRS.items():
+        if name.startswith(prefix):
+            folder = FIGURES_DIR / sub
+            break
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder / f"{name}.png"
+
 # ---------------------------------------------------------------------------
 # Dataset source
 # ---------------------------------------------------------------------------

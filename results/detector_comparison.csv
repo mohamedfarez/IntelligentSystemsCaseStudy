@@ -1,0 +1,12 @@
+,threshold_baseline,iforest,iforest_no_frozen_mask
+n_failures,4.0,4.0,4.0
+n_detected,4.0,4.0,4.0
+n_early_warnings,1.0,1.0,1.0
+event_recall,1.0,1.0,1.0
+median_lead_time_min,-20.0,-5.0,-5.0
+n_alarm_episodes,51.0,102.0,106.0
+n_false_alarm_episodes,45.0,96.0,100.0
+false_alarms_per_day,0.245,0.522,0.543
+window_precision,0.324,0.421,0.29
+window_recall,0.911,0.947,0.921
+window_f1,0.478,0.583,0.442
