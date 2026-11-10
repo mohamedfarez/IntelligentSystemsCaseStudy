@@ -30,6 +30,8 @@ start (positive = before the failure, negative = detection delay). Because
 only alarms inside the horizon are counted, lead time cannot exceed the
 horizon. Alarm episodes outside these windows are counted as false alarms.
 Window-level precision/recall/F1 are reported as a secondary view.
+The evaluation functions live in :mod:`src.evaluation` and are shared by
+all detectors.
 
 Run::
 
@@ -42,12 +44,11 @@ import argparse
 import logging
 from dataclasses import asdict, dataclass
 
-import numpy as np
 import pandas as pd
-from sklearn.metrics import precision_recall_fscore_support
 
 from src import config
 from src.data_loading import load_metropt3
+from src.evaluation import _run_ids, evaluate_events, warning_window_labels
 
 logger = logging.getLogger(__name__)
 
@@ -118,17 +119,6 @@ def window_features(df: pd.DataFrame, window: str = "10min",
     return feats
 
 
-def _run_ids(flags: pd.Series, step: pd.Timedelta) -> pd.Series:
-    """Label runs of True values that are consecutive in *time*.
-
-    A new run starts at every False value and wherever the time difference
-    to the previous window is not exactly ``step`` (a recording gap).
-    """
-    t = pd.Series(flags.index, index=flags.index)
-    breaks = (~flags) | (t.diff() != step)
-    return breaks.cumsum()
-
-
 # ---------------------------------------------------------------------------
 # Model
 # ---------------------------------------------------------------------------
@@ -196,109 +186,6 @@ class ThresholdBaseline:
         run_id = _run_ids(raw, pd.Timedelta(self.cfg.window))
         run_length = raw.astype(int).groupby(run_id.to_numpy()).cumsum()
         return (run_length >= self.cfg.persistence).rename("alarm")
-
-
-# ---------------------------------------------------------------------------
-# Evaluation
-# ---------------------------------------------------------------------------
-def warning_window_labels(index: pd.DatetimeIndex, horizon: str,
-                          periods: pd.DataFrame = config.FAILURE_PERIODS) -> pd.Series:
-    """Label windows inside ``[failure start - horizon, failure end]``.
-
-    Args:
-        index: Window (end) times.
-        horizon: Early-warning horizon (pandas Timedelta string).
-        periods: Failure periods with ``start`` and ``end`` columns.
-
-    Returns:
-        Boolean series (True = window should raise an alarm).
-    """
-    h = pd.Timedelta(horizon)
-    mask = np.zeros(len(index), dtype=bool)
-    for start, end in zip(periods["start"], periods["end"]):
-        mask |= (index >= start - h) & (index <= end)
-    return pd.Series(mask, index=index, name="target")
-
-
-def alarm_episodes(alarms: pd.Series, window: str) -> pd.DataFrame:
-    """Merge alarming windows that are consecutive in time into episodes.
-
-    Args:
-        alarms: Boolean alarm series indexed by window end time.
-        window: Window length, used to detect recording gaps.
-
-    Returns:
-        Data frame with ``start`` and ``end`` (first / last alarm time) per episode.
-    """
-    a = alarms.astype(bool)
-    run_id = _run_ids(a, pd.Timedelta(window))[a]
-    if run_id.empty:
-        return pd.DataFrame({"start": pd.Series(dtype="datetime64[ns]"),
-                             "end": pd.Series(dtype="datetime64[ns]")})
-    grouped = run_id.index.to_series().groupby(run_id.to_numpy())
-    return pd.DataFrame({"start": grouped.min().to_numpy(), "end": grouped.max().to_numpy()})
-
-
-def evaluate_events(alarms: pd.Series, horizon: str, window: str,
-                    periods: pd.DataFrame = config.FAILURE_PERIODS) -> tuple[pd.DataFrame, dict]:
-    """Event-level evaluation: detection, lead time and false alarms.
-
-    Args:
-        alarms: Boolean alarm series (test period only), indexed by window end.
-        horizon: Early-warning horizon.
-        window: Window length (for episode merging).
-        periods: Failure periods to evaluate against.
-
-    Returns:
-        ``(events, summary)`` — one row per failure, plus a dict of KPIs.
-        ``lead_time_min`` > 0 means the alarm came before the reported
-        failure start; < 0 means it came after (detection delay).
-    """
-    h = pd.Timedelta(horizon)
-    alarm_times = alarms.index[alarms.to_numpy(dtype=bool)]
-    in_test = periods[(periods["end"] >= alarms.index.min()) & (periods["start"] <= alarms.index.max())]
-
-    rows = []
-    for _, p in in_test.iterrows():
-        hits = alarm_times[(alarm_times >= p["start"] - h) & (alarm_times <= p["end"])]
-        first = hits.min() if len(hits) else pd.NaT
-        rows.append({
-            "failure_id": p["failure_id"],
-            "start": p["start"],
-            "end": p["end"],
-            "detected": len(hits) > 0,
-            "first_alarm": first,
-            "lead_time_min": (p["start"] - first) / pd.Timedelta("1min") if len(hits) else np.nan,
-            "early_warning": bool(len(hits) and first < p["start"]),
-        })
-    events = pd.DataFrame(rows)
-
-    episodes = alarm_episodes(alarms, window)
-    is_true = np.zeros(len(episodes), dtype=bool)
-    for _, p in in_test.iterrows():
-        is_true |= ((episodes["end"] >= p["start"] - h) & (episodes["start"] <= p["end"])).to_numpy()
-    n_false = int((~is_true).sum())
-    test_days = (alarms.index.max() - alarms.index.min()) / pd.Timedelta("1D")
-
-    y_true = warning_window_labels(alarms.index, horizon, in_test).astype(int)
-    prec, rec, f1, _ = precision_recall_fscore_support(
-        y_true, alarms.astype(int), average="binary", zero_division=0
-    )
-    has_events = len(events) > 0
-    summary = {
-        "n_failures": len(events),
-        "n_detected": int(events["detected"].sum()) if has_events else 0,
-        "n_early_warnings": int(events["early_warning"].sum()) if has_events else 0,
-        "event_recall": float(events["detected"].mean()) if has_events else float("nan"),
-        "median_lead_time_min": float(events["lead_time_min"].median()) if has_events else float("nan"),
-        "n_alarm_episodes": len(episodes),
-        "n_false_alarm_episodes": n_false,
-        "false_alarms_per_day": n_false / test_days if test_days > 0 else float("nan"),
-        "window_precision": float(prec),
-        "window_recall": float(rec),
-        "window_f1": float(f1),
-    }
-    return events, summary
 
 
 # ---------------------------------------------------------------------------
