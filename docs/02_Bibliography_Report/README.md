@@ -2,7 +2,7 @@
 
 Literature review for the case study *Early Warning of Air-Leak Failures in Metro Compressors: Explainable Anomaly Detection on the MetroPT-3 Dataset* (Group 6, submitted 03.11.2026).
 
-**[Open the report (PDF)](Group6_Bibliography_Report.pdf)**
+**[Open the report (PDF)](Group6_Bibliography_Report.pdf)** · [Presentation slides (PPTX)](Group6_Milestone2_Slides.pptx)
 
 | Section | Content |
 |---|---|

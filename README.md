@@ -2,7 +2,7 @@
 
 Case study for the module **MDM2 – Intelligent Systems in Production**, M.Eng. Applied AI for Digital Production Management, Technische Hochschule Deggendorf (winter semester 2026/27).
 
-**Team (Group 6):** Fuad Obiedat · Abdennour Djeha · Mohamed Fares · Hady Nasser
+**Team (Group 6):** Mohamed Fares · Fuad Obiedat · Abdennour Djeha · Hady Nasser
 **Contact:** mohamed.fares@stud.th-deg.de
 
 ---
@@ -110,8 +110,8 @@ IntelligentSystemsCaseStudy/
 | Milestone | Document |
 |---|---|
 | Proposal (2026-10-20) | [One-page proposal (PDF)](docs/01_Proposal/MDM2104_Proposal_MetroPT3_Group6.pdf) · [Slides (PPTX)](docs/01_Proposal/Group6_Proposal.pptx) |
-| Bibliography report (2026-11-03) | [Bibliography report (PDF)](docs/02_Bibliography_Report/Group6_Bibliography_Report.pdf) · [LaTeX sources](docs/02_Bibliography_Report/source/) |
-| Methodology, phase 1 (2026-11-24) | [Methodology report (PDF)](docs/03_Methodology_Phase1/Group6_Methodology_Phase1.pdf) · [LaTeX sources](docs/03_Methodology_Phase1/source/) |
+| Bibliography report (2026-11-03) | [Bibliography report (PDF)](docs/02_Bibliography_Report/Group6_Bibliography_Report.pdf) · [Slides (PPTX)](docs/02_Bibliography_Report/Group6_Milestone2_Slides.pptx) · [LaTeX sources](docs/02_Bibliography_Report/source/) |
+| Methodology, phase 1 (2026-11-24) | [Methodology report (PDF)](docs/03_Methodology_Phase1/Group6_Methodology_Phase1.pdf) · [Slides (PPTX)](docs/03_Methodology_Phase1/Group6_Methodology_Phase1_Slides.pptx) · [LaTeX sources](docs/03_Methodology_Phase1/source/) |
 
 ## 5. Setup and reproduction
 

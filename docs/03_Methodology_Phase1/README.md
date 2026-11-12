@@ -2,7 +2,7 @@
 
 Theoretical framework and system design for the case study *Early Warning of Air-Leak Failures in Metro Compressors: Explainable Anomaly Detection on the MetroPT-3 Dataset* (Group 6, submitted 24.11.2026).
 
-**[Open the report (PDF)](Group6_Methodology_Phase1.pdf)**
+**[Open the report (PDF)](Group6_Methodology_Phase1.pdf)** · [Presentation slides (PPTX)](Group6_Methodology_Phase1_Slides.pptx)
 
 | Section | Content |
 |---|---|
