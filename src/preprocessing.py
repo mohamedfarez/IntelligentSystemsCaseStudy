@@ -11,9 +11,12 @@ Steps (in this order):
    (recording gaps, removed frozen records) are dropped instead of being
    filled, so no artificial values are created.
 3. **Chronological split** — windows ending at or before ``TRAIN_END``
-   (February 2020) form the training set; everything after is the test set.
-4. **Scaling fitted on training data only** — the scaler never sees test
-   windows, which avoids information leakage.
+   (February 2020) are normal data. Their last ``val_days`` days form a
+   validation set (used to set alarm thresholds and, for neural models, to
+   stop training); the earlier days form the training set. Everything after
+   ``TRAIN_END`` is the test set.
+4. **Scaling fitted on training data only** — the scaler never sees
+   validation or test windows, which avoids information leakage.
 
 The LPS signal is *not* used as an input feature: it is the low-pressure
 symptom of a developing failure and serves as the reference point for early
@@ -51,7 +54,8 @@ class PreprocessConfig:
         mask_frozen: Remove records inside frozen logging segments.
         load_current_a: Motor current above which the compressor is
             considered to run under load.
-        train_end: Boundary between training and test period.
+        train_end: Boundary between normal (training + validation) and test period.
+        val_days: Length of the validation set at the end of the normal period.
         exclude_horizon: Training windows this close to a reported failure
             are removed (none fall in February, kept as a safeguard).
     """
@@ -61,6 +65,7 @@ class PreprocessConfig:
     mask_frozen: bool = True
     load_current_a: float = config.MOTOR_LOAD_CURRENT_A
     train_end: pd.Timestamp = config.TRAIN_END
+    val_days: int = 7
     exclude_horizon: str = "2h"
 
 
@@ -152,27 +157,32 @@ def feature_columns(feats: pd.DataFrame) -> list[str]:
 # Steps 3-4: split and scaling
 # ---------------------------------------------------------------------------
 def chronological_split(feats: pd.DataFrame, train_end: pd.Timestamp = config.TRAIN_END,
-                        exclude_horizon: str = "2h") -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Split windows in time; training windows near a failure are removed.
+                        exclude_horizon: str = "2h",
+                        val_days: int = 7) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Split windows in time into training, validation and test sets.
 
     Args:
         feats: Window features indexed by window end.
-        train_end: Last window end that belongs to the training period.
-        exclude_horizon: Warning horizon used to drop training windows near
-            reported failures.
+        train_end: Last window end of the normal period.
+        exclude_horizon: Warning horizon used to drop normal-period windows
+            near reported failures (none fall in February; a safeguard).
+        val_days: Days at the end of the normal period used for validation.
 
     Returns:
-        ``(train, test)``.
+        ``(train, val, test)``.
 
     Raises:
-        ValueError: If either part is empty.
+        ValueError: If any part is empty.
     """
-    train = feats[feats.index <= train_end]
-    train = train[~warning_window_labels(train.index, exclude_horizon).to_numpy()]
+    normal = feats[feats.index <= train_end]
+    normal = normal[~warning_window_labels(normal.index, exclude_horizon).to_numpy()]
+    val_start = normal.index.max() - pd.Timedelta(days=val_days)
+    train = normal[normal.index <= val_start]
+    val = normal[normal.index > val_start]
     test = feats[feats.index > train_end]
-    if train.empty or test.empty:
-        raise ValueError("Empty training or test period - check TRAIN_END and the data range.")
-    return train, test
+    if train.empty or val.empty or test.empty:
+        raise ValueError("Empty training, validation or test set - check TRAIN_END, val_days and the data range.")
+    return train, val, test
 
 
 class TrainOnlyScaler:
@@ -204,6 +214,7 @@ class PreparedData:
 
     features: pd.DataFrame          # all windows, unscaled
     train: pd.DataFrame             # scaled training windows
+    val: pd.DataFrame               # scaled validation windows (end of February)
     test: pd.DataFrame              # scaled test windows
     scaler: TrainOnlyScaler
     frozen_segments: pd.DataFrame   # segments removed in step 1
@@ -226,11 +237,12 @@ def prepare(df: pd.DataFrame, cfg: PreprocessConfig | None = None) -> PreparedDa
     else:
         clean, segments = df, find_flatlines(df).iloc[0:0]
     feats = window_features(clean, cfg.window, cfg.min_coverage, cfg.load_current_a)
-    train, test = chronological_split(feats, cfg.train_end, cfg.exclude_horizon)
+    train, val, test = chronological_split(feats, cfg.train_end, cfg.exclude_horizon, cfg.val_days)
     scaler = TrainOnlyScaler().fit(train)
     return PreparedData(
         features=feats,
         train=scaler.transform(train),
+        val=scaler.transform(val),
         test=scaler.transform(test),
         scaler=scaler,
         frozen_segments=segments,

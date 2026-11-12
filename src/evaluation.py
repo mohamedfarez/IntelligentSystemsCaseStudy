@@ -9,7 +9,9 @@ operational KPIs, so that detectors are compared under one protocol:
 * **lead time** (minutes) is measured from the first such alarm to the
   reported failure start (positive = before the failure, negative = delay);
 * alarm **episodes** (runs of consecutive alarming windows) outside these
-  intervals are counted as **false alarms**, also expressed per day;
+  intervals are counted as **false alarms**, also expressed per day of
+  *observed* test time (number of windows x window length), so recording
+  gaps do not dilute the rate;
 * window-level precision / recall / F1 are reported as a secondary view.
   No point adjustment is applied (see Kim et al., 2022).
 
@@ -149,7 +151,8 @@ def evaluate_events(alarms: pd.Series, horizon: str, window: str,
     for _, p in in_test.iterrows():
         is_true |= ((episodes["end"] >= p["start"] - h) & (episodes["start"] <= p["end"])).to_numpy()
     n_false = int((~is_true).sum())
-    test_days = (alarms.index.max() - alarms.index.min()) / pd.Timedelta("1D")
+    observed_days = len(alarms) * pd.Timedelta(window) / pd.Timedelta("1D")
+    span_days = (alarms.index.max() - alarms.index.min()) / pd.Timedelta("1D")
 
     y_true = warning_window_labels(alarms.index, horizon, in_test).astype(int)
     prec, rec, f1, _ = precision_recall_fscore_support(
@@ -164,7 +167,9 @@ def evaluate_events(alarms: pd.Series, horizon: str, window: str,
         "median_lead_time_min": float(events["lead_time_min"].median()) if has_events else float("nan"),
         "n_alarm_episodes": len(episodes),
         "n_false_alarm_episodes": n_false,
-        "false_alarms_per_day": n_false / test_days if test_days > 0 else float("nan"),
+        "false_alarms_per_day": n_false / observed_days if observed_days > 0 else float("nan"),
+        "observed_test_days": observed_days,
+        "test_span_days": span_days,
         "window_precision": float(prec),
         "window_recall": float(rec),
         "window_f1": float(f1),

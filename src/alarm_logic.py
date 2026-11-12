@@ -5,9 +5,11 @@ one anomaly score per window, where higher means more unusual. The same two
 steps turn every score into alarms, so differences between detectors come
 from the scores and not from different alarm rules:
 
-1. **Threshold from training scores** — ``Q3 + k * IQR`` of the scores on
-   the (normal) training windows, with ``k = 3`` as in Silva et al. (2023).
-   No test data is used.
+1. **Threshold from validation scores** — ``Q3 + k * IQR`` of the scores on
+   the normal validation windows (last week of February, not used to fit the
+   detector), with ``k = 3`` as in Silva et al. (2023). Scores on the
+   detector's own training data are optimistic (too low), which would give
+   a threshold that is too low. No test data is used.
 2. **Low-pass filter** — single windows above the threshold are often
    noise. The binary exceedance signal ``x_i`` is smoothed with the filter
    of Ribeiro et al. (2016), ``y_i = y_{i-1} + alpha * (x_i - y_{i-1})``,
@@ -74,15 +76,15 @@ def low_pass(exceed: pd.Series, alpha: float = 0.3, window: str = "10min") -> pd
 
 
 class AlarmRule:
-    """Threshold + low-pass filter, fitted on training scores only."""
+    """Threshold + low-pass filter, fitted on normal validation scores only."""
 
     def __init__(self, cfg: AlarmConfig | None = None) -> None:
         self.cfg = cfg or AlarmConfig()
         self.threshold_: float | None = None
 
-    def fit(self, train_scores: pd.Series) -> "AlarmRule":
-        """Set the threshold from the training-score distribution."""
-        self.threshold_ = iqr_threshold(train_scores, self.cfg.iqr_factor)
+    def fit(self, normal_scores: pd.Series) -> "AlarmRule":
+        """Set the threshold from scores on normal (validation) windows."""
+        self.threshold_ = iqr_threshold(normal_scores, self.cfg.iqr_factor)
         return self
 
     def predict(self, scores: pd.Series) -> pd.Series:

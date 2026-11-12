@@ -1,9 +1,10 @@
 """End-to-end experiment runner for the learned detectors.
 
 Pipeline: preprocessing (frozen-segment masking, gap-aware windows,
-chronological split, train-only scaling) -> detector fit on February ->
-anomaly scores -> common alarm logic -> event-level evaluation, including
-lead time relative to the first LPS activation.
+chronological split, train-only scaling) -> detector fit on February
+(1-21) -> anomaly scores -> threshold from the validation week (22-28
+February) and low-pass filter -> event-level evaluation, including lead time
+relative to the first LPS activation.
 
 Run::
 
@@ -44,26 +45,27 @@ def run(df: pd.DataFrame, detector_name: str = "iforest",
         horizon: Early-warning horizon for the evaluation.
 
     Returns:
-        Dict with the prepared data, detector, scores, alarm rule, alarms,
-        per-failure events and the KPI summary.
+        Dict with the prepared data, detector, training / validation / test
+        scores, alarm rule, alarms, per-failure events and the KPI summary.
     """
     config.set_global_seed()
     pre_cfg = pre_cfg or PreprocessConfig()
     data = prepare(df, pre_cfg)
-    logger.info("Removed %d frozen records; train windows %d, test windows %d",
-                data.n_records_removed, len(data.train), len(data.test))
+    logger.info("Removed %d frozen records; train %d, validation %d, test %d windows",
+                data.n_records_removed, len(data.train), len(data.val), len(data.test))
 
     detector = DETECTORS[detector_name]().fit(data.train)
     train_scores = detector.score(data.train)
+    val_scores = detector.score(data.val)
     test_scores = detector.score(data.test)
 
     alarm_cfg = alarm_cfg or AlarmConfig(window=pre_cfg.window)
-    rule = AlarmRule(alarm_cfg).fit(train_scores)
+    rule = AlarmRule(alarm_cfg).fit(val_scores)
     alarms = rule.predict(test_scores)
     events, summary = evaluate_events(alarms, horizon, pre_cfg.window,
                                       lps=lps_onsets(df, horizon))
     return {"data": data, "detector": detector, "train_scores": train_scores,
-            "test_scores": test_scores, "rule": rule, "alarms": alarms,
+            "val_scores": val_scores, "test_scores": test_scores, "rule": rule, "alarms": alarms,
             "events": events, "summary": summary}
 
 
